@@ -1,0 +1,62 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+manager:
+  - ${manager_ip}
+
+monitor:
+  - ${manager_ip}
+
+gc:
+  - ${manager_ip}
+
+tserver:
+%{ for ip in worker_ips ~}
+  - ${ip}
+%{ endfor ~}
+
+sserver:
+  - default:
+%{ for ip in worker_ips ~}
+      - ${ip}
+%{ endfor ~}
+
+compaction:
+  coordinator:
+    - ${manager_ip}
+  compactor:
+    - q1:
+%{ for ip in worker_ips ~}
+        - ${ip}
+%{ endfor ~}
+    - q2:
+%{ for ip in worker_ips ~}
+        - ${ip}
+%{ endfor ~}
+
+#
+# The following are used by the accumulo-cluster script to determine how many servers
+# to start on each host. If the following variables are not set, then they default to 1.
+# If the environment variable NUM_TSERVERS is set when running accumulo_cluster
+# then its value will override what is set in this file for tservers_per_host. Likewise if
+# NUM_SSERVERS is set then it will override sservers_per_host.
+#
+tservers_per_host: 1
+sservers_per_host: 1
+

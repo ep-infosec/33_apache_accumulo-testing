@@ -1,0 +1,61 @@
+#! /usr/bin/env bash
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+set -eo pipefail
+
+#
+# Copy local systemctl unit files into place and enable zookeeper, the namenode, and the resourcemanager
+#
+sudo cp ${software_root}/conf/zookeeper.service /etc/systemd/system/zookeeper.service
+sudo cp ${software_root}/conf/hadoop-namenode.service /etc/systemd/system/hadoop-namenode.service
+sudo cp ${software_root}/conf/yarn-resourcemanager.service /etc/systemd/system/yarn-resourcemanager.service
+sudo systemctl daemon-reload
+sudo systemctl enable zookeeper
+sudo systemctl enable hadoop-namenode
+sudo systemctl enable yarn-resourcemanager
+
+#
+# Copy the datanode and nodemanager systemd unit file to each worker, and enable them there.
+#
+pdcp -g worker ${software_root}/conf/hadoop-datanode.service ${software_root}/conf/yarn-nodemanager.service /tmp/.
+pdsh -S -g worker "sudo cp /tmp/{hadoop-datanode,yarn-nodemanager}.service /etc/systemd/system/. && rm -f /tmp/{hadoop-datanode,yarn-nodemanager}.service"
+pdsh -S -g worker sudo systemctl daemon-reload
+pdsh -S -g worker sudo systemctl enable hadoop-datanode yarn-nodemanager
+
+#
+# Startup HDFS cluster
+# 1. Start zookeeper
+# 2. Format the namenode
+# 3. Start the namenode
+# 4. Start the resource manager
+# 5. Start datanodes and nodemanagers on the worker nodes
+# 6. Wait for the namenode to leave safemode
+#
+sudo systemctl start zookeeper
+hdfs namenode -format
+sudo systemctl start hadoop-namenode
+sudo systemctl start yarn-resourcemanager
+pdsh -S -g worker 'sudo systemctl start hadoop-datanode yarn-nodemanager'
+
+echo "Waiting for NameNode to leave safemode..."
+while [[ ! $(hdfs dfsadmin -safemode wait 2>/dev/null) =~ OFF ]]; do
+  sleep 5
+  echo "Waiting for NameNode to leave safemode..."
+done

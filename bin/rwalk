@@ -1,0 +1,47 @@
+#! /usr/bin/env bash
+#
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+#
+
+bin_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+at_home=$(cd "$(dirname "$bin_dir")" && pwd)
+source "${bin_dir}/build"
+
+function print_usage() {
+  cat <<EOF
+
+Usage: $0 <module> (<argument>)
+
+   Runs random walk <module>
+   Modules listed below located in <at_home>/src/main/resources/randomwalk/modules
+
+EOF
+  find "$at_home/src/main/resources/randomwalk/modules/." -maxdepth 1 -name "*.xml" -printf "%f\n" | sort
+}
+
+export CLASSPATH="$TEST_JAR_PATH:$HADOOP_API_JAR:$HADOOP_RUNTIME_JAR:$CLASSPATH"
+
+randomwalk_main="org.apache.accumulo.testing.randomwalk.Framework"
+
+if [ -z "$1" ]; then
+  echo "ERROR: <module> needs to be set"
+  print_usage
+  exit 1
+fi
+
+java $JAVA_OPTS -Dlog4j.configurationFile="file:$TEST_LOG4J" "$randomwalk_main" "$TEST_PROPS" "$ACCUMULO_CLIENT_PROPS" "$1"
